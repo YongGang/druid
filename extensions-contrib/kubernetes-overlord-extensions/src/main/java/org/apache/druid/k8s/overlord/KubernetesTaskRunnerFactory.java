@@ -20,6 +20,7 @@
 package org.apache.druid.k8s.overlord;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Supplier;
 import com.google.inject.Inject;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
 import org.apache.druid.guice.annotations.EscalatedGlobal;
@@ -27,6 +28,7 @@ import org.apache.druid.guice.annotations.Self;
 import org.apache.druid.guice.annotations.Smile;
 import org.apache.druid.indexing.common.config.TaskConfig;
 import org.apache.druid.indexing.overlord.TaskRunnerFactory;
+import org.apache.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
 import org.apache.druid.java.util.http.client.HttpClient;
@@ -56,6 +58,7 @@ public class KubernetesTaskRunnerFactory implements TaskRunnerFactory<Kubernetes
   private final Properties properties;
   private final DruidKubernetesClient druidKubernetesClient;
   private final ServiceEmitter emitter;
+  private final Supplier<WorkerBehaviorConfig> workerConfigRef;
   private KubernetesTaskRunner runner;
 
   @Inject
@@ -69,7 +72,8 @@ public class KubernetesTaskRunnerFactory implements TaskRunnerFactory<Kubernetes
       TaskConfig taskConfig,
       Properties properties,
       DruidKubernetesClient druidKubernetesClient,
-      ServiceEmitter emitter
+      ServiceEmitter emitter,
+      Supplier<WorkerBehaviorConfig> workerConfigRef
   )
   {
     this.smileMapper = smileMapper;
@@ -82,6 +86,7 @@ public class KubernetesTaskRunnerFactory implements TaskRunnerFactory<Kubernetes
     this.properties = properties;
     this.druidKubernetesClient = druidKubernetesClient;
     this.emitter = emitter;
+    this.workerConfigRef = workerConfigRef;
   }
 
   @Override
@@ -146,7 +151,8 @@ public class KubernetesTaskRunnerFactory implements TaskRunnerFactory<Kubernetes
           druidNode,
           smileMapper,
           properties,
-          taskLogs
+          taskLogs,
+          workerConfigRef
       );
     } else {
       return new SingleContainerTaskAdapter(

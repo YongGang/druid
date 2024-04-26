@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.guice.annotations.PublicApi;
 import org.apache.druid.indexing.common.task.Task;
+import org.apache.druid.indexing.common.task.Tasks;
 import org.apache.druid.indexing.overlord.ImmutableWorkerInfo;
 import org.apache.druid.indexing.overlord.config.WorkerTaskRunnerConfig;
 
@@ -40,7 +41,8 @@ import javax.annotation.Nullable;
     @JsonSubTypes.Type(name = "equalDistributionWithAffinity", value = EqualDistributionWithAffinityWorkerSelectStrategy.class),
     @JsonSubTypes.Type(name = "javascript", value = JavaScriptWorkerSelectStrategy.class),
     @JsonSubTypes.Type(name = "fillCapacityWithCategorySpec", value = FillCapacityWithCategorySpecWorkerSelectStrategy.class),
-    @JsonSubTypes.Type(name = "equalDistributionWithCategorySpec", value = EqualDistributionWithCategorySpecWorkerSelectStrategy.class)
+    @JsonSubTypes.Type(name = "equalDistributionWithCategorySpec", value = EqualDistributionWithCategorySpecWorkerSelectStrategy.class),
+    @JsonSubTypes.Type(name = "workerSelectWithTaskLabelling", value = WorkerSelectWithTaskLabellingStrategy.class)
 })
 @PublicApi
 public interface WorkerSelectStrategy
@@ -60,4 +62,10 @@ public interface WorkerSelectStrategy
       ImmutableMap<String, ImmutableWorkerInfo> zkWorkers,
       Task task
   );
+
+  @Nullable
+  default String determineTaskLabel(Task task)
+  {
+    return task.getContextValue(Tasks.LABEL);
+  }
 }

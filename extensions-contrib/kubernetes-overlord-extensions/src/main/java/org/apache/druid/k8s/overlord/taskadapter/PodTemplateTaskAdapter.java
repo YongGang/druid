@@ -20,6 +20,7 @@
 package org.apache.druid.k8s.overlord.taskadapter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.fabric8.kubernetes.api.model.EnvVar;
@@ -37,6 +38,7 @@ import org.apache.druid.error.InternalServerError;
 import org.apache.druid.guice.IndexingServiceModuleHelper;
 import org.apache.druid.indexing.common.config.TaskConfig;
 import org.apache.druid.indexing.common.task.Task;
+import org.apache.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
@@ -83,7 +85,6 @@ public class PodTemplateTaskAdapter implements TaskAdapter
 
   private static final Logger log = new Logger(PodTemplateTaskAdapter.class);
 
-
   private static final String TASK_PROPERTY = IndexingServiceModuleHelper.INDEXER_RUNNER_PROPERTY_PREFIX + ".k8s.podTemplate.";
 
   private final KubernetesTaskRunnerConfig taskRunnerConfig;
@@ -92,6 +93,7 @@ public class PodTemplateTaskAdapter implements TaskAdapter
   private final ObjectMapper mapper;
   private final HashMap<String, PodTemplate> templates;
   private final TaskLogs taskLogs;
+  private final Supplier<WorkerBehaviorConfig> workerConfigRef;
 
   public PodTemplateTaskAdapter(
       KubernetesTaskRunnerConfig taskRunnerConfig,
@@ -99,7 +101,8 @@ public class PodTemplateTaskAdapter implements TaskAdapter
       DruidNode node,
       ObjectMapper mapper,
       Properties properties,
-      TaskLogs taskLogs
+      TaskLogs taskLogs,
+      Supplier<WorkerBehaviorConfig> workerConfigRef
   )
   {
     this.taskRunnerConfig = taskRunnerConfig;
@@ -108,6 +111,7 @@ public class PodTemplateTaskAdapter implements TaskAdapter
     this.mapper = mapper;
     this.templates = initializePodTemplates(properties);
     this.taskLogs = taskLogs;
+    this.workerConfigRef = workerConfigRef;
   }
 
   /**
@@ -126,7 +130,18 @@ public class PodTemplateTaskAdapter implements TaskAdapter
   @Override
   public Job fromTask(Task task) throws IOException
   {
-    PodTemplate podTemplate = templates.getOrDefault(task.getType(), templates.get("base"));
+    PodTemplate podTemplate = null;
+    WorkerBehaviorConfig workerConfig = workerConfigRef.get();
+    if (workerConfig != null && workerConfig.getSelectStrategy() != null) {
+      String label = workerConfig.getSelectStrategy().determineTaskLabel(task);
+      log.error("label: %s, selectStrategy: %s", label, workerConfig.getSelectStrategy());
+      if (label != null) {
+        podTemplate = templates.get(label);
+      }
+    }
+    if (podTemplate == null) {
+      podTemplate = templates.getOrDefault(task.getType(), templates.get("base"));
+    }
     if (podTemplate == null) {
       throw new ISE("Pod template spec not found for task type [%s]", task.getType());
     }
