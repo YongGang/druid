@@ -134,7 +134,6 @@ public class PodTemplateTaskAdapter implements TaskAdapter
     WorkerBehaviorConfig workerConfig = workerConfigRef.get();
     if (workerConfig != null && workerConfig.getSelectStrategy() != null) {
       String label = workerConfig.getSelectStrategy().determineTaskLabel(task);
-      log.error("label: %s, selectStrategy: %s", label, workerConfig.getSelectStrategy());
       if (label != null) {
         podTemplate = templates.get(label);
       }
